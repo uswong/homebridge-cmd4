@@ -102,11 +102,38 @@ class Cmd4PriorityPollingQueue
       if ( this.errorValue != 0 )
       {
          if ( settings.cmd4Dbg ) this.log.debug(`prioritySetValue for ${ this.displayName }, homebridgeCallback returning error ${ this.errorValue } ${ this.errorString }`);
+
+         // retrieved and reset to the storedValue on Homekit, then abort the setValue request
+         let storedValue = this.cmd4Storage.getStoredValueForIndex( accTypeEnumIndex );
+         this.service.getCharacteristic( CMD4_ACC_TYPE_ENUM.properties[ accTypeEnumIndex ].characteristic ).updateValue( storedValue );
+
          homebridgeCallback( this.errorValue );
+
+         this.log.error(`prioritySetValue: ${ this.displayName } not accessible, Setting ${ this.displayName } ${ characteristicString } ${ value } aborted!`);
+         return; // abort the setValue request
       } else
       {
          if ( settings.cmd4Dbg ) this.log.debug(`prioritySetValue for ${ this.displayName }, homebridgeCallback returning default success 0`);
          homebridgeCallback( 0 );
+
+         // For AdvantageAir users only- do some rounding on Zone Brightness and
+         // set FanSpeed to 4 tiers: 25% (low), 50% (medium), 90% (high) and 100% (Auto/ezFan)
+         if ( this.state_cmd.match( /AdvAir.sh'$/ ) )
+         {
+            // round the value to nearest 5% for Aircon Zone Brightness
+            if ( this.displayName.match ( / Zone$/ ) && characteristicString == 'Brightness' )
+            {
+               value = Math.round( value / 5 ) * 5;
+               this.service.getCharacteristic( CMD4_ACC_TYPE_ENUM.properties[ accTypeEnumIndex ].characteristic ).updateValue( value );
+            }
+            // set the value to 25% if value <= 33% else 50% if value <=67% else 90% if value <=99% for Aircon RotationSpeed
+            if ( this.displayName.match( / FanSpeed$/ ) && characteristicString == 'RotationSpeed' && value < 100 )
+            {
+               value = Math.ceil( value / 33.8 ) * 25;
+               value = value >= 75 ? 90 : value;
+               this.service.getCharacteristic( CMD4_ACC_TYPE_ENUM.properties[ accTypeEnumIndex ].characteristic ).updateValue( value );
+            }
+         }
       }
 
       let newEntry = { [ constants.IS_SET_lv ]: true, [ constants.ACCESSORY_lv ]: this, [ constants.ACC_TYPE_ENUM_INDEX_lv ]: accTypeEnumIndex, [ constants.CHARACTERISTIC_STRING_lv ]: characteristicString, [ constants.TIMEOUT_lv ]: timeout, [ constants.STATE_CHANGE_RESPONSE_TIME_lv ]: stateChangeResponseTime, [ constants.CALLBACK_lv ]: homebridgeCallback, [ constants.VALUE_lv ]: value };
@@ -240,6 +267,10 @@ class Cmd4PriorityPollingQueue
          {
             // The "Set" is complete, even if it failed.
             queue.inProgressSets --;
+
+            // retrieved and reset to the storedValue
+            let storedValue = entry.accessory.cmd4Storage.getStoredValueForIndex( entry.accTypeEnumIndex );
+            entry.accessory.service.getCharacteristic( CMD4_ACC_TYPE_ENUM.properties[ entry.accTypeEnumIndex ].characteristic ).updateValue( storedValue );
 
             let currentRetryCount = queue.errorCountSinceLastGoodTransaction;
 

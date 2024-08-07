@@ -22,6 +22,10 @@ let createAccessorysInformationService = require( "./utils/createAccessorysInfor
 // Pretty Colors
 var chalk = require( "chalk" );
 
+// create a JSON array existingAccessoryUUID to store the UUID of existing accessories
+var existingAccessoryUUID = [];
+var hasValue = true;
+
 // These would already be initialized by index.js
 let CMD4_CHAR_TYPE_ENUMS = require( "./lib/CMD4_CHAR_TYPE_ENUMS" ).CMD4_CHAR_TYPE_ENUMS;
 let CMD4_DEVICE_TYPE_ENUM = require( "./lib/CMD4_DEVICE_TYPE_ENUM" ).CMD4_DEVICE_TYPE_ENUM;
@@ -123,7 +127,9 @@ class Cmd4Platform
          // Any accessory not reachable must have been removed, find them
          this.toBeRestoredPlatforms.forEach( ( accessory ) =>
          {
-            if ( ! accessory.reachable )
+            // if ( ! accessory.reachable )
+            hasValue = existingAccessoryUUID.includes( accessory.UUID );
+            if ( ! hasValue )
                this.removeAccessory( accessory );
          });
 
@@ -547,6 +553,7 @@ class Cmd4Platform
          // Just a flag to say we have processed this existing platform accessory.
          // @deprecated homebridge v2
          //platform.updateReachability( true );
+         existingAccessoryUUID.push( accessory.uuid );
 
 
          // For Unit testing only

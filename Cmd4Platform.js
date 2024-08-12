@@ -471,7 +471,10 @@ class Cmd4Platform
             // Create all the services for the accessory, including fakegato
             // true = from existing.
             this.createServicesForAccessoriesChildren( accessory, true )
-
+                 
+            // Since 'updateReachability()' function and the key 'reachable' are deprecated on Homebridge_v2
+            // we will define the key 'reachable' and set it to 'true' explicitly to flag that this accessory is restored from cache
+            existingAccessory.reachable = true;
 
          } else
          {
